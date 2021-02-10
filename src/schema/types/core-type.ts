@@ -39,6 +39,10 @@ export abstract class CoreType extends IOttomanType {
     return this.options?.default;
   }
 
+  get immutable(): boolean {
+    return this.options?.immutable || false;
+  }
+
   buildDefault(): unknown {
     if (typeof this.default === 'function') {
       return this.default();

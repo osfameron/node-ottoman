@@ -96,7 +96,7 @@ export const _buildModel = (metadata: ModelMetadata) => {
       const strategy = options.strategy || CAST_STRATEGY.DEFAULT_OR_DROP;
       const strict = options.strict !== undefined ? options.strict : schema.options.strict;
       const skip = options.skip || [modelKey, ID_KEY];
-      const schemaData = cast(data, schema, { strategy, strict, skip });
+      const schemaData = cast(data, schema, { strategy, strict: !!strict, skip });
       this._applyData(schemaData);
 
       // Adding methods to the model instance
@@ -191,12 +191,8 @@ export const _buildModel = (metadata: ModelMetadata) => {
       const key = id || data[ID_KEY];
       const value = await _Model.findById(key);
       if (value.id) {
-        const updated = {
-          ...value,
-          ...data,
-          ...{ [modelKey]: value[modelKey] },
-        };
-        const instance = new _Model({ ...updated }, { strategy: CAST_STRATEGY.THROW });
+        value._applyData({ ...value, ...data, ...{ [modelKey]: value[modelKey] } });
+        const instance = new _Model({ ...value }, { strategy: CAST_STRATEGY.THROW });
         return instance.save();
       }
       throw new (couchbase as any).DocumentNotFoundError();
@@ -206,10 +202,11 @@ export const _buildModel = (metadata: ModelMetadata) => {
       const key = id || data[ID_KEY];
       const value = await _Model.findById(key);
       if (value.id) {
-        const instance = new _Model({
+        value._applyData({
           ...data,
           ...{ [ID_KEY]: key, [modelKey]: modelName },
         });
+        const instance = new _Model({ ...value });
         return instance.save();
       }
       throw new (couchbase as any).DocumentNotFoundError();
@@ -266,7 +263,9 @@ export const _buildModel = (metadata: ModelMetadata) => {
     ) => {
       const before = await _Model.findOne(filter, options);
       if (before) {
-        const after = await _Model.fromData({ ...before, ...doc }).save();
+        const afterToUpdate = _Model.fromData({ ...before });
+        afterToUpdate._applyData({ ...doc });
+        const after = await afterToUpdate.save();
         return options.new ? after : before;
       } else {
         if (options.upsert) {

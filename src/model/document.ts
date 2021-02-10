@@ -36,6 +36,43 @@ export abstract class Document<T> {
   /**
    * @ignore
    */
+  protected constructor() {
+    const { get, set, hasOwnProperty } = (function immutables() {
+      const i = {};
+      return {
+        get(key: string) {
+          return i[key];
+        },
+        set(key: string, value: any) {
+          i[key] = value;
+        },
+        hasOwnProperty(key: string): boolean {
+          return i.hasOwnProperty(key);
+        },
+      };
+    })();
+    Object.defineProperties(this, {
+      setImmutable: {
+        value: function (key: string, value: any): void {
+          set(key, value);
+        },
+      },
+      getImmutable: {
+        value: function (key: string): any {
+          return get(key);
+        },
+      },
+      immutableHasOwnProperty: {
+        value: function (key: string): boolean {
+          return hasOwnProperty(key);
+        },
+      },
+    });
+  }
+
+  /**
+   * @ignore
+   */
   get $(): ModelMetadata {
     return getModelMetadata(this.constructor);
   }
@@ -296,8 +333,23 @@ export abstract class Document<T> {
    * ```
    */
   _applyData(data) {
+    const strict = this.$.schema.options.strict;
     for (const key in data) {
       this[key] = data[key];
+      const isImmutable = (this.$.schema.fields[key] as any)?.options?.immutable;
+      if (!this.immutableHasOwnProperty(key) && isImmutable && strict) {
+        this.setImmutable(key, data[key]);
+        Object.defineProperty(this, key, {
+          get() {
+            return this.getImmutable(key);
+          },
+          set(value) {
+            if (strict === 'throw' && this.getImmutable(key) !== value) {
+              throw new Error(`Field '${key}' is immutable and strict = 'throw'`);
+            }
+          },
+        });
+      }
     }
   }
 

@@ -33,6 +33,7 @@ export interface RequiredOption {
 
 export interface CoreTypeOptions {
   required?: boolean | RequiredOption | RequiredFunction;
+  immutable?: boolean;
   default?: unknown;
   validator?: ValidatorOption | ValidatorFunction | string;
 }
@@ -44,7 +45,7 @@ export abstract class IOttomanType {
 }
 
 export interface SchemaOptions {
-  strict?: boolean;
+  strict?: boolean | 'throw';
   preHooks?: Hook;
   postHooks?: Hook;
 }
